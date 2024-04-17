@@ -6,7 +6,9 @@ import datetime
 import requests
 import google.oauth2.id_token
 import google.auth.transport.requests
-
+from google.auth import default
+from google.auth.transport.requests import Request
+from google.oauth2 import id_token
 
 class SDSManager:
     def __init__(self):
@@ -14,10 +16,10 @@ class SDSManager:
 
     def make_iap_request(self, req_url, audience, data):
         """
-        Function to make IAP request to SDS
+        Function to make IAP request to CIR
         Parameters:
-            req_url(str): The full path of the SDS endpoint
-            audience(str): The Client ID of the OAuth client on SDS project
+            req_url(str): The full path of the CIR endpoint
+            audience(str): The Client ID of the OAuth client on CIR project
             data(schema): The schema being published
         Returns:
             HTTP Response, includes status code and message.
@@ -43,7 +45,7 @@ class SDSManager:
         """
         Function to create headers for authentication with auth token.
         Parameters:
-            audience(str): The Client ID of the OAuth client on SDS project
+            audience(str): The Client ID of the OAuth client on CIR project
         Returns:
             dict[str, str]: the headers required for remote authentication.
         """
@@ -58,15 +60,15 @@ class SDSManager:
 
     def get_client_id(self, project_id) -> str:
         """
-        Function to get Client ID of OAuth Client on SDS project
+        Function to get Client ID of OAuth Client on CIR project
         Require the role OAuth Config Editor & Compute Viewer for the service account used
         Parameters:
-            project_id(str): The SDS Project ID
+            project_id(str): The CIR Project ID
         Returns:
             OAuth Client ID
         """
         try:
-            # Fetch for the client ID of OAuth Client on SDS
+            # Fetch for the client ID of OAuth Client on CIR
             cmd_get_oauth_brand_name = (
                 "gcloud iap oauth-brands list --format='value(name)' --limit=1 --project="
                 + project_id
@@ -121,61 +123,58 @@ class SDSManager:
             print(f"Error extracting key ID: {e}")
             return None
     
-    @staticmethod
-    def generate_key_file(project_id, service_account_email):   
-        
-        key_filetype = "json"
-        key_filename = project_id + "-ons-cir-sandbox-01-key" + "." + key_filetype
+    def generate_key_file(self, project_id):
+        # Constructing the service account email using the project_id
+        service_account_email = f"{project_id}@appspot.gserviceaccount.com"
 
-        # Setting environment variables
-        os.environ["ONS_CIR_SANDBOX_SA"] = service_account_email
-        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_filename
+        key_filetype = "json"
+        key_filename = project_id + "." + key_filetype
+
+        #########-------------------------------########## Setting environment variables
+        os.environ["ONS_SDS_SANDBOX_SA"] = service_account_email
+        #os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_filename
 
         # Constructing the gcloud command
         cmd_create_service_account_key = (
-            "gcloud iam service-accounts keys create " + key_filename +
-            " --iam-account=" + service_account_email +
-            " --key-file-type=" + key_filetype + " --project=" + project_id
+            "gcloud iam service-accounts keys create "
+            + key_filename
+            + " --iam-account="
+            + service_account_email
+            + " --key-file-type="
+            + key_filetype
+            + " --project="
+            + project_id
         )
 
         try:
             # Execute the command and capture the output
-            key_output = subprocess.check_output(cmd_create_service_account_key, shell=True)
-
-            # Read the key file to get the key ID
-            with open(key_filename, 'r') as key_file:
-                key_data = json.load(key_file)
-                key_id = key_data.get('private_key_id')
-                if not key_id:
-                    raise Exception("Key ID not found in the key file.")
-                
-            print("Extracted Key ID:", key_id)
-        except subprocess.CalledProcessError as e:
-            print(f"Error executing command: {e}")
-            key_id = None
+            key_output = subprocess.check_output(
+                cmd_create_service_account_key, shell=True
+            )
+            key_id = self.extract_key_id(key_filename)
+            if key_id is None:
+                raise Exception("Key ID extraction failed.")
+            return key_filename, key_id
         except Exception as e:
-            print(f"Error extracting key ID: {e}")
-            key_id = None, None
+            print(f"Error occurred: {e}")
+            return key_filename, key_id
 
-        return key_filename, key_id
-
-    @staticmethod
-    def cleanup_key_file(local_key_file, key_id, project_id):
+    def cleanup_key_file(self, local_key_file, key_id, project_id):
         try:
             # Delete local key file
             if os.path.exists(local_key_file):
                 os.remove(local_key_file)
                 print(f"Deleted local key file: {local_key_file}")
 
-            print(f"Attempting to delete key with ID: {key_id}")  # Debug print statement
-
             # Form the command to delete the key from GCP
-            iam_account = "mohammed.ahmed@ons.gov.uk"
+            iam_account = f"{project_id}@appspot.gserviceaccount.com"
             cmd_delete_key = f"gcloud iam service-accounts keys delete {key_id} --iam-account={iam_account} --project={project_id} --quiet"
 
             # Execute the command
             try:
-                subprocess.check_output(cmd_delete_key, shell=True, stderr=subprocess.STDOUT)
+                subprocess.check_output(
+                    cmd_delete_key, shell=True, stderr=subprocess.STDOUT
+                )
                 print(f"Deleted key {key_id} from GCP")
             except subprocess.CalledProcessError as e:
                 print(f"Failed to delete key {key_id} from GCP: {e.output.decode()}")
@@ -185,8 +184,8 @@ class SDSManager:
 
 
 details = {}
-details["project_id"] = input("Enter the SDS Project ID: ").strip()
-details["base_url"] = input("Enter the SDS URL: ").strip()
+details["project_id"] = input("Enter the CIR Project ID: ").strip()
+details["base_url"] = input("Enter the CIR URL: ").strip()
 
 path_to_json = "/Users/mohammedahmed/Documents/ci-test-schemas"
 post_url = "/v1/publish_collection_instrument"
@@ -283,7 +282,6 @@ if __name__ == "__main__":
     ci_list, json_files = load_ci_from_path(path_to_json)
     audience = SDSManager().get_client_id(details["project_id"]) 
 
-    service_account_email = "mohammed.ahmed@ons.gov.uk"  # Your service account email
-    key_filename, key_id = sds_manager.generate_key_file(details["project_id"], service_account_email)
+    key_filename, key_id = sds_manager.generate_key_file(details["project_id"])
 
     process_ci_files(ci_list, json_files, audience)  
