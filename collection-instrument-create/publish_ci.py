@@ -185,10 +185,12 @@ class SDSManager:
 
 
 details = {}
-details["project_id"] = input("Enter the CIR Project ID: ").strip()
-details["base_url"] = input("Enter the CIR URL: ").strip()
+#details["project_id"] = input("Enter the CIR Project ID: ").strip()
+#details["base_url"] = input("Enter the CIR URL: ").strip()
+details["project_id"] = "ons-cir-sandbox-384314"
+details["base_url"] = "https://34.111.178.226.nip.io"
 
-path_to_json = "/Users/mohammedahmed/Documents/ci-test-schemas"
+path_to_json = "./CIR_test_schema_cleaned"
 post_url = "/v1/publish_collection_instrument"
 timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 mandatory_keys = ["data_version", "form_type", "language", "survey_id", "title", "schema_version", "description"]
