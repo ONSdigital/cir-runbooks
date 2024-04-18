@@ -132,7 +132,7 @@ class SDSManager:
 
         #########-------------------------------########## Setting environment variables
         os.environ["ONS_SDS_SANDBOX_SA"] = service_account_email
-        #os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_filename
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_filename
 
         # Constructing the gcloud command
         cmd_create_service_account_key = (
@@ -157,7 +157,8 @@ class SDSManager:
             return key_filename, key_id
         except Exception as e:
             print(f"Error occurred: {e}")
-            return key_filename, key_id
+            return key_filename, None  # Return key_filename and None for key_id
+
 
     def cleanup_key_file(self, local_key_file, key_id, project_id):
         try:
@@ -229,7 +230,7 @@ def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
        5 Additional Fields that are not present in the `PostCiMetadataV1PostData` model(if
        response received has the message `Field required`)).
     """
-    base_url = "http://34.111.178.226"
+    base_url = "https://34.111.178.226.nip.io"
     post_url = "/v1/publish_collection_instrument"
     request_url = f"{base_url}{post_url}"
     ci_response = SDSManager().make_iap_request(request_url, audience, ci) 
@@ -280,8 +281,13 @@ if __name__ == "__main__":
     sds_manager = SDSManager()
 
     ci_list, json_files = load_ci_from_path(path_to_json)
-    audience = SDSManager().get_client_id(details["project_id"]) 
-
     key_filename, key_id = sds_manager.generate_key_file(details["project_id"])
+    audience = SDSManager().get_client_id(details["project_id"]) 
+    print(audience)
+
+
+    if key_id is None:
+        print("Error: Unable to create key file. Exiting the script.")
+        exit()  # Exit the script if a key file cannot be created
 
     process_ci_files(ci_list, json_files, audience)  
