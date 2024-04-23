@@ -190,7 +190,7 @@ details = {}
 details["project_id"] = "ons-cir-sandbox-384314"
 details["base_url"] = "https://34.111.178.226.nip.io"
 
-path_to_json = "./CIR_test_schema_cleaned"
+path_to_json = "./collection-instrument-create/CIR_test_schema_cleaned"
 post_url = "/v1/publish_collection_instrument"
 timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 mandatory_keys = ["data_version", "form_type", "language", "survey_id", "title", "schema_version", "description"]
@@ -237,25 +237,31 @@ def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
     request_url = f"{base_url}{post_url}"
     ci_response = SDSManager().make_iap_request(request_url, audience, ci) 
     if ci_response is not None: 
-        ci_response_json = ci_response.json()
-        # Process the JSON response
-        if ci_response_json["message"] == "Field required" and ci_response_json["status"] == "error":
+        try:
+            ci_response_json = ci_response.json()
+            # Process the JSON response
+            if ci_response_json.get("message") == "Field required" and ci_response_json.get("status") == "error":
+                total_errors_found += 1
+                mandatory_missing_keys = [key for key in mandatory_keys if key not in ci.keys()]
+                optional_missing_keys = [key for key in optional_keys if key not in ci.keys()]
+                additional_keys = [key for key in ci.keys() if key not in (mandatory_keys + optional_keys)]
+                log_file.write(
+                    f"CI File name: {file_name}\n"
+                    f"CI response {ci_response_json}\n"
+                    f"Mandatory Missing Fields {mandatory_missing_keys}\n"
+                    f"Optional Missing Fields {optional_missing_keys}\n"
+                    f"Additional Fields Found {additional_keys}\n\n\n"
+                )
+            elif ci_response_json.get("status") == "error":
+                total_errors_found += 1
+                log_file.write(f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n")
+            else:
+                log_file.write(f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n")
+        except KeyError:
+            # Handle the case where the expected keys are not present in the response
+            logging.error("KeyError: Required key(s) not found in the response JSON.")
             total_errors_found += 1
-            mandatory_missing_keys = [key for key in mandatory_keys if key not in ci.keys()]
-            optional_missing_keys = [key for key in optional_keys if key not in ci.keys()]
-            additional_keys = [key for key in ci.keys() if key not in (mandatory_keys + optional_keys)]
-            log_file.write(
-                f"CI File name: {file_name}\n"
-                f"CI response {ci_response_json}\n"
-                f"Mandatory Missing Fields {mandatory_missing_keys}\n"
-                f"Optional Missing Fields {optional_missing_keys}\n"
-                f"Additional Fields Found {additional_keys}\n\n\n"
-            )
-        elif ci_response_json["status"] == "error":
-            total_errors_found += 1
-            log_file.write(f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n")
-        else:
-            log_file.write(f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n")
+            log_file.write(f"Error: Required key(s) not found in the response JSON for CI file: {file_name}\n\n")
     else:
         # Handle the case where the request failed
         logging.error("Failed to make IAP request.")
