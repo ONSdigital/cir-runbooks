@@ -7,7 +7,6 @@ import datetime
 import requests
 import google.oauth2.id_token
 import google.auth.transport.requests
-from google.auth import default
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
@@ -305,12 +304,12 @@ if __name__ == "__main__":
     Before running this file make sure to clone the required repository and then specify the path above
     """
     # Automatically authenticate the user
-    #try:
-        #subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
-        #print("Authentication successful. Continuing with the script...")
-    #except subprocess.CalledProcessError as e:
-        #print(f"Error: Authentication failed. {e}")
-        #exit(1)  # Exit the script if authentication fails
+    try:
+        subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
+        print("Authentication successful. Continuing with the script...")
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Authentication failed. {e}")
+        exit(1)  # Exit the script if authentication fails
     
     # Prompt the user to enter the CIR Project ID and URL
     project_id = input("Enter the CIR Project ID: ").strip()
