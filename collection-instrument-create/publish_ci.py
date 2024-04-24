@@ -184,7 +184,6 @@ class SDSManager:
             print(f"Error during cleanup: {e}")
 
 details = {}
-
 path_to_json = "./collection-instrument-create/CIR_test_schema_cleaned"
 post_url = "/v1/publish_collection_instrument"
 timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
@@ -330,6 +329,6 @@ if __name__ == "__main__":
 
     if key_id is None:
         print("Error: Unable to create key file. Exiting the script.")
-        exit()  # Exit the script if a key file cannot be created
+        exit()  # Exit the script if a key file cannot be created.
 
     process_ci_files(ci_list, json_files, audience, key_filename, key_id, details["project_id"])
