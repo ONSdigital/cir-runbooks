@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import re
 import os
 import json
 import datetime
@@ -183,10 +184,7 @@ class SDSManager:
         except Exception as e:
             print(f"Error during cleanup: {e}")
 
-
 details = {}
-#details["project_id"] = "ons-sds-sandbox-01"
-#details["base_url"] = "https://34.111.178.226.nip.io"
 
 path_to_json = "./collection-instrument-create/CIR_test_schema_cleaned"
 post_url = "/v1/publish_collection_instrument"
@@ -216,7 +214,6 @@ def load_ci_from_path(path_to_json):
             ci = json.load(content)
             ci_list.append(ci)
     return ci_list, json_files
-
 
 def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
     """
@@ -283,29 +280,54 @@ def process_ci_files(ci_list, json_files, audience, key_filename, key_id, projec
     sds_manager = SDSManager()
     sds_manager.cleanup_key_file(key_filename, key_id, project_id)
 
+def validate_project_id(project_id):
+    """
+    Validate the format of the CIR Project ID.
+    """
+    if re.match(r'^[a-z\d-]+$', project_id):
+        return True
+    else:
+        print("Error: Invalid project ID format. Project ID can only contain lowercase letters, digits, and hyphens.")
+        return False
+
+def validate_url(url):
+    """
+    Validate the format of the CIR URL.
+    """
+    if re.match(r'^https?://(?:[a-z\d-]+\.?)+[a-z]{2,}$', url):
+        return True
+    else:
+        print("Error: Invalid URL format. Please enter a valid URL starting with 'http://' or 'https://'.")
+        return False
+
 if __name__ == "__main__":
     """
     Before running this file make sure to clone the required repository and then specify the path above
     """
     # Automatically authenticate the user
-    try:
-        subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
-        print("Authentication successful. Continuing with the script...")
-    except subprocess.CalledProcessError as e:
-        print(f"Error: Authentication failed. {e}")
-        exit(1)  # Exit the script if authentication fails
+    #try:
+        #subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
+        #print("Authentication successful. Continuing with the script...")
+    #except subprocess.CalledProcessError as e:
+        #print(f"Error: Authentication failed. {e}")
+        #exit(1)  # Exit the script if authentication fails
     
-
-    details["project_id"] = input("Enter the CIR Project ID: ").strip()
-    details["base_url"] = input("Enter the CIR URL: ").strip()
+    # Prompt the user to enter the CIR Project ID and URL
+    project_id = input("Enter the CIR Project ID: ").strip()
+    while not validate_project_id(project_id):
+        project_id = input("Enter the CIR Project ID: ").strip()
     
+    base_url = input("Enter the CIR URL: ").strip()
+    while not validate_url(base_url):
+        base_url = input("Enter the CIR URL: ").strip()
+    
+    details = {"project_id": project_id, "base_url": base_url}
     sds_manager = SDSManager()
 
     ci_list, json_files = load_ci_from_path(path_to_json)
     key_filename, key_id = sds_manager.generate_key_file(details["project_id"])
     audience = SDSManager().get_client_id(details["project_id"]) 
     print(audience)
-
 
     if key_id is None:
         print("Error: Unable to create key file. Exiting the script.")
