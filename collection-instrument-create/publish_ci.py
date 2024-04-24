@@ -130,7 +130,7 @@ class SDSManager:
         key_filetype = "json"
         key_filename = project_id + "." + key_filetype
 
-        #########-------------------------------########## Setting environment variables
+        # Setting environment variables
         os.environ["ONS_SDS_SANDBOX_SA"] = service_account_email
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_filename
 
@@ -185,10 +185,8 @@ class SDSManager:
 
 
 details = {}
-#details["project_id"] = input("Enter the CIR Project ID: ").strip()
-#details["base_url"] = input("Enter the CIR URL: ").strip()
-details["project_id"] = "ons-cir-sandbox-384314"
-details["base_url"] = "https://34.111.178.226.nip.io"
+#details["project_id"] = "ons-sds-sandbox-01"
+#details["base_url"] = "https://34.111.178.226.nip.io"
 
 path_to_json = "./collection-instrument-create/CIR_test_schema_cleaned"
 post_url = "/v1/publish_collection_instrument"
@@ -206,7 +204,6 @@ optional_keys = [
     "submission",
     "theme",
 ]
-
 
 def load_ci_from_path(path_to_json):
     """
@@ -232,7 +229,7 @@ def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
        5 Additional Fields that are not present in the `PostCiMetadataV1PostData` model(if
        response received has the message `Field required`)).
     """
-    base_url = "https://34.111.178.226.nip.io"
+    base_url = "https://34.36.120.202.nip.io"
     post_url = "/v1/publish_collection_instrument"
     request_url = f"{base_url}{post_url}"
     ci_response = SDSManager().make_iap_request(request_url, audience, ci) 
@@ -267,7 +264,7 @@ def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
         logging.error("Failed to make IAP request.")
     return total_errors_found
 
-def process_ci_files(ci_list, json_files , audience):
+def process_ci_files(ci_list, json_files, audience, key_filename, key_id, project_id):
     """
     This function creates a log file which is used in storing responses in `publish_ci_file` function and provide
     consolidated count of json files to be published and errors found is provdied at the end of the log file
@@ -282,10 +279,26 @@ def process_ci_files(ci_list, json_files , audience):
             f"Total errors found total_errors_found: {total_errors_found}\n\n"
         )
 
+    # Delete the key file after all CIs have been published
+    sds_manager = SDSManager()
+    sds_manager.cleanup_key_file(key_filename, key_id, project_id)
+
 if __name__ == "__main__":
     """
     Before running this file make sure to clone the required repository and then specify the path above
     """
+    # Automatically authenticate the user
+    try:
+        subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
+        print("Authentication successful. Continuing with the script...")
+    except subprocess.CalledProcessError as e:
+        print(f"Error: Authentication failed. {e}")
+        exit(1)  # Exit the script if authentication fails
+    
+
+    details["project_id"] = input("Enter the CIR Project ID: ").strip()
+    details["base_url"] = input("Enter the CIR URL: ").strip()
+    
     sds_manager = SDSManager()
 
     ci_list, json_files = load_ci_from_path(path_to_json)
@@ -298,4 +311,4 @@ if __name__ == "__main__":
         print("Error: Unable to create key file. Exiting the script.")
         exit()  # Exit the script if a key file cannot be created
 
-    process_ci_files(ci_list, json_files, audience)  
+    process_ci_files(ci_list, json_files, audience, key_filename, key_id, details["project_id"])
