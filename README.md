@@ -6,6 +6,9 @@ This script automates the process of publishing Collection Instruments (CIs) to 
 
 Download Collection Instruments (CIs): Download the necessary Collection Instrument JSON files that you want to publish. Store these files in a folder on your computer. (Multiple ci files can be stored in a folder)
 Open the script file (publish_ci.py) and locate line 189. Change the value of path_to_json to the absolute path of the folder where you stored the CI JSON files.
+Finally run the following commands
+    'pip install requests'
+    'pip install google-auth'
 
 # Publishing a ci/multiple ci's
 
