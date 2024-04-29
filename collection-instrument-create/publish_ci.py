@@ -1,17 +1,18 @@
-import logging
-import subprocess
-import re
-import os
-import json
 import datetime
+import json
+import logging
+import os
+import re
+import subprocess
 
-import requests
-import google.oauth2.id_token
 import google.auth.transport.requests
+import google.oauth2.id_token
+import requests
 from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
-class SDSManager:
+
+class CIRManager:
     def __init__(self):
         pass
 
@@ -93,8 +94,9 @@ class SDSManager:
         except subprocess.CalledProcessError as e:
             print(e.output)
 
-
-    def publish_collection_instrument(self, collection_instrument_data, project_id, base_url):
+    def publish_collection_instrument(
+        self, collection_instrument_data, project_id, base_url
+    ):
         """
         Function to publish a collection instrument to a specified endpoint.
         Parameters:
@@ -106,11 +108,14 @@ class SDSManager:
         """
         # Obtain the Client ID of OAuth Client on the project. Requires the project ID.
         audience = self.get_client_id(project_id)
-        
-        # Make a request to the specified endpoint
-        response = self.make_iap_request(f"{base_url}/v1/publish_collection_instrument", audience, collection_instrument_data)
-        return response
 
+        # Make a request to the specified endpoint
+        response = self.make_iap_request(
+            f"{base_url}/v1/publish_collection_instrument",
+            audience,
+            collection_instrument_data,
+        )
+        return response
 
     def extract_key_id(self, filename):
         try:
@@ -123,7 +128,7 @@ class SDSManager:
         except Exception as e:
             print(f"Error extracting key ID: {e}")
             return None
-    
+
     def generate_key_file(self, project_id):
         # Constructing the service account email using the project_id
         service_account_email = f"{project_id}@appspot.gserviceaccount.com"
@@ -160,7 +165,6 @@ class SDSManager:
             print(f"Error occurred: {e}")
             return key_filename, None  # Return key_filename and None for key_id
 
-
     def cleanup_key_file(self, local_key_file, key_id, project_id):
         try:
             # Delete local key file
@@ -184,11 +188,20 @@ class SDSManager:
         except Exception as e:
             print(f"Error during cleanup: {e}")
 
+
 details = {}
 path_to_json = "./collection-instrument-create/CIR_test_schema_cleaned"
 post_url = "/v1/publish_collection_instrument"
 timestamp = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
-mandatory_keys = ["data_version", "form_type", "language", "survey_id", "title", "schema_version", "description"]
+mandatory_keys = [
+    "data_version",
+    "form_type",
+    "language",
+    "survey_id",
+    "title",
+    "schema_version",
+    "description",
+]
 optional_keys = [
     "legal_basis",
     "metadata",
@@ -202,6 +215,7 @@ optional_keys = [
     "theme",
 ]
 
+
 def load_ci_from_path(path_to_json):
     """
     This function loads CIs from the specified path and return ci_list and json file names
@@ -213,6 +227,7 @@ def load_ci_from_path(path_to_json):
             ci = json.load(content)
             ci_list.append(ci)
     return ci_list, json_files
+
 
 def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
     """
@@ -228,16 +243,27 @@ def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
     base_url = "https://34.36.120.202.nip.io"
     post_url = "/v1/publish_collection_instrument"
     request_url = f"{base_url}{post_url}"
-    ci_response = SDSManager().make_iap_request(request_url, audience, ci) 
-    if ci_response is not None: 
+    ci_response = CIRManager().make_iap_request(request_url, audience, ci)
+    if ci_response is not None:
         try:
             ci_response_json = ci_response.json()
             # Process the JSON response
-            if ci_response_json.get("message") == "Field required" and ci_response_json.get("status") == "error":
+            if (
+                ci_response_json.get("message") == "Field required"
+                and ci_response_json.get("status") == "error"
+            ):
                 total_errors_found += 1
-                mandatory_missing_keys = [key for key in mandatory_keys if key not in ci.keys()]
-                optional_missing_keys = [key for key in optional_keys if key not in ci.keys()]
-                additional_keys = [key for key in ci.keys() if key not in (mandatory_keys + optional_keys)]
+                mandatory_missing_keys = [
+                    key for key in mandatory_keys if key not in ci.keys()
+                ]
+                optional_missing_keys = [
+                    key for key in optional_keys if key not in ci.keys()
+                ]
+                additional_keys = [
+                    key
+                    for key in ci.keys()
+                    if key not in (mandatory_keys + optional_keys)
+                ]
                 log_file.write(
                     f"CI File name: {file_name}\n"
                     f"CI response {ci_response_json}\n"
@@ -247,18 +273,25 @@ def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
                 )
             elif ci_response_json.get("status") == "error":
                 total_errors_found += 1
-                log_file.write(f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n")
+                log_file.write(
+                    f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n"
+                )
             else:
-                log_file.write(f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n")
+                log_file.write(
+                    f"CI file name {file_name}\n" f"CI response {ci_response_json}\n\n"
+                )
         except KeyError:
             # Handle the case where the expected keys are not present in the response
             logging.error("KeyError: Required key(s) not found in the response JSON.")
             total_errors_found += 1
-            log_file.write(f"Error: Required key(s) not found in the response JSON for CI file: {file_name}\n\n")
+            log_file.write(
+                f"Error: Required key(s) not found in the response JSON for CI file: {file_name}\n\n"
+            )
     else:
         # Handle the case where the request failed
         logging.error("Failed to make IAP request.")
     return total_errors_found
+
 
 def process_ci_files(ci_list, json_files, audience, key_filename, key_id, project_id):
     """
@@ -268,7 +301,9 @@ def process_ci_files(ci_list, json_files, audience, key_filename, key_id, projec
     total_errors_found = 0
     with open(f"log_{timestamp}.log", "a") as log_file:
         for ci, file_name in zip(ci_list, json_files):
-            total_errors_found = publish_ci_file(ci, file_name, log_file, audience, total_errors_found)
+            total_errors_found = publish_ci_file(
+                ci, file_name, log_file, audience, total_errors_found
+            )
         log_file.write(
             f"Folder location provided: {path_to_json}\n"
             f"Total Number of Json files to be published: {len(json_files)}\n"
@@ -276,28 +311,35 @@ def process_ci_files(ci_list, json_files, audience, key_filename, key_id, projec
         )
 
     # Delete the key file after all CIs have been published
-    sds_manager = SDSManager()
-    sds_manager.cleanup_key_file(key_filename, key_id, project_id)
+    cir_manager = CIRManager()
+    cir_manager.cleanup_key_file(key_filename, key_id, project_id)
+
 
 def validate_project_id(project_id):
     """
     Validate the format of the CIR Project ID.
     """
-    if re.match(r'^[a-z\d-]+$', project_id):
+    if re.match(r"^[a-z\d-]+$", project_id):
         return True
     else:
-        print("Error: Invalid project ID format. Project ID can only contain lowercase letters, digits, and hyphens.")
+        print(
+            "Error: Invalid project ID format. Project ID can only contain lowercase letters, digits, and hyphens."
+        )
         return False
+
 
 def validate_url(url):
     """
     Validate the format of the CIR URL.
     """
-    if re.match(r'^https?://(?:[a-z\d-]+\.?)+[a-z]{2,}$', url):
+    if re.match(r"^https?://(?:[a-z\d-]+\.?)+[a-z]{2,}$", url):
         return True
     else:
-        print("Error: Invalid URL format. Please enter a valid URL starting with 'http://' or 'https://'.")
+        print(
+            "Error: Invalid URL format. Please enter a valid URL starting with 'http://' or 'https://'."
+        )
         return False
+
 
 if __name__ == "__main__":
     """
@@ -310,26 +352,28 @@ if __name__ == "__main__":
     except subprocess.CalledProcessError as e:
         print(f"Error: Authentication failed. {e}")
         exit(1)  # Exit the script if authentication fails
-    
+
     # Prompt the user to enter the CIR Project ID and URL
     project_id = input("Enter the CIR Project ID: ").strip()
     while not validate_project_id(project_id):
         project_id = input("Enter the CIR Project ID: ").strip()
-    
+
     base_url = input("Enter the CIR URL: ").strip()
     while not validate_url(base_url):
         base_url = input("Enter the CIR URL: ").strip()
-    
+
     details = {"project_id": project_id, "base_url": base_url}
-    sds_manager = SDSManager()
+    cir_manager = CIRManager()
 
     ci_list, json_files = load_ci_from_path(path_to_json)
-    key_filename, key_id = sds_manager.generate_key_file(details["project_id"])
-    audience = SDSManager().get_client_id(details["project_id"]) 
+    key_filename, key_id = cir_manager.generate_key_file(details["project_id"])
+    audience = CIRManager().get_client_id(details["project_id"])
     print(audience)
 
     if key_id is None:
         print("Error: Unable to create key file. Exiting the script.")
         exit()  # Exit the script if a key file cannot be created
 
-    process_ci_files(ci_list, json_files, audience, key_filename, key_id, details["project_id"])
+    process_ci_files(
+        ci_list, json_files, audience, key_filename, key_id, details["project_id"]
+    )
