@@ -258,7 +258,9 @@ class CIProcessor:
         return folder_path
 
     @staticmethod
-    def publish_ci_file(ci, file_name, log_file, audience, total_errors_found, base_url):
+    def publish_ci_file(
+        ci, file_name, log_file, audience, total_errors_found, base_url
+    ):
         """
         This function publishes ci and logs the response
         """
@@ -317,7 +319,14 @@ class CIProcessor:
 
     @staticmethod
     def process_ci_files(
-        ci_list, json_files, audience, key_filename, key_id, project_id, folder_path, base_url
+        ci_list,
+        json_files,
+        audience,
+        key_filename,
+        key_id,
+        project_id,
+        folder_path,
+        base_url,
     ):
         """
         This function creates a log file which is used in storing responses in `publish_ci_file` function and provide
@@ -415,7 +424,14 @@ class CIPublisher:
 
         # Process CI files
         CIProcessor.process_ci_files(
-            ci_list, json_files, audience, key_filename, key_id, project_id, folder_path, base_url
+            ci_list,
+            json_files,
+            audience,
+            key_filename,
+            key_id,
+            project_id,
+            folder_path,
+            base_url,
         )
 
         # Delete the key file after processing CIs
