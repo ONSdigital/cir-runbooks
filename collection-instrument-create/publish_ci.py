@@ -258,11 +258,10 @@ class CIProcessor:
         return folder_path
 
     @staticmethod
-    def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
+    def publish_ci_file(ci, file_name, log_file, audience, total_errors_found, base_url):
         """
         This function publishes ci and logs the response
         """
-        base_url = "https://34.36.120.202.nip.io"
         request_url = f"{base_url}{POST_URL}"
         ci_response = CIRManager().make_iap_request(request_url, audience, ci)
 
@@ -318,7 +317,7 @@ class CIProcessor:
 
     @staticmethod
     def process_ci_files(
-        ci_list, json_files, audience, key_filename, key_id, project_id, folder_path
+        ci_list, json_files, audience, key_filename, key_id, project_id, folder_path, base_url
     ):
         """
         This function creates a log file which is used in storing responses in `publish_ci_file` function and provide
@@ -330,7 +329,7 @@ class CIProcessor:
         ) as log_file:
             for ci, file_name in zip(ci_list, json_files):
                 total_errors_found = CIProcessor.publish_ci_file(
-                    ci, file_name, log_file, audience, total_errors_found
+                    ci, file_name, log_file, audience, total_errors_found, base_url
                 )
             log_file.write(
                 f"Folder location provided: {folder_path}\n"
@@ -416,7 +415,7 @@ class CIPublisher:
 
         # Process CI files
         CIProcessor.process_ci_files(
-            ci_list, json_files, audience, key_filename, key_id, project_id, folder_path
+            ci_list, json_files, audience, key_filename, key_id, project_id, folder_path, base_url
         )
 
         # Delete the key file after processing CIs
