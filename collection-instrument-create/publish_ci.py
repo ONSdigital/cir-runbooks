@@ -12,8 +12,28 @@ from google.auth.transport.requests import Request
 from google.oauth2 import id_token
 
 POST_URL = "/v1/publish_collection_instrument"
-MANDATORY_KEYS = ["data_version", "form_type", "language", "survey_id", "title", "schema_version", "description"]
-OPTIONAL_KEYS = ["legal_basis", "metadata", "mime_type", "navigation", "questionnaire_flow", "post_submission", "sds_schema", "sections", "submission", "theme"]
+MANDATORY_KEYS = [
+    "data_version",
+    "form_type",
+    "language",
+    "survey_id",
+    "title",
+    "schema_version",
+    "description",
+]
+OPTIONAL_KEYS = [
+    "legal_basis",
+    "metadata",
+    "mime_type",
+    "navigation",
+    "questionnaire_flow",
+    "post_submission",
+    "sds_schema",
+    "sections",
+    "submission",
+    "theme",
+]
+
 
 class CIRManager:
     def __init__(self):
@@ -186,12 +206,16 @@ class CIRManager:
                 )
                 print(f"Deleted key {key_id} from GCP")
             except subprocess.CalledProcessError as e:
-                print(f"Failed to delete key {key_id} from GCP: {e.output.decode()}")
+                if "NOT_FOUND" in e.output.decode():
+                    print(f"Key {key_id} no longer found in GCP.")
+                else:
+                    print(
+                        f"Failed to delete key {key_id} from GCP: {e.output.decode()}"
+                    )
 
         except Exception as e:
             print(f"Error during cleanup: {e}")
 
-path_to_json = "./collection-instrument-create/CIR_test_schema_cleaned"
 
 class CIProceesor:
     def __init__(self):
@@ -209,7 +233,29 @@ class CIProceesor:
                 ci = json.load(content)
                 ci_list.append(ci)
         return ci_list, json_files
-    
+
+    @staticmethod
+    def validate_folder_path(folder_path):
+        """
+        Validate the provided folder path.
+        """
+        if os.path.isdir(folder_path):
+            return True
+        else:
+            print("Error: The provided path is not a valid folder.")
+            return False
+
+    @staticmethod
+    def get_folder_path_from_user():
+        """
+        Prompt the user to input the folder path.
+        """
+        folder_path = input("Enter the folder path containing CI JSON files: ").strip()
+        while not CIProceesor.validate_folder_path(folder_path):
+            folder_path = input(
+                "Enter the folder path containing CI JSON files: "
+            ).strip()
+        return folder_path
 
     @staticmethod
     def publish_ci_file(ci, file_name, log_file, audience, total_errors_found):
@@ -219,52 +265,47 @@ class CIProceesor:
         base_url = "https://34.36.120.202.nip.io"
         request_url = f"{base_url}{POST_URL}"
         ci_response = CIRManager().make_iap_request(request_url, audience, ci)
-        
+
         if ci_response is not None:
             try:
                 ci_response_json = ci_response.json()
-                
-                # Construct the log message based on different conditions
-                log_message = (
-                    f"CI file name: {file_name}\n"
-                    f"CI response: {ci_response_json}\n"
-                )
-                if (
-                    ci_response_json.get("message") == "Field required"
-                    and ci_response_json.get("status") == "error"
-                ):
+
+                # Handle error cases
+                if ci_response_json.get("status") == "error":
                     total_errors_found += 1
-                    mandatory_missing_keys = [
-                        key for key in MANDATORY_KEYS if key not in ci.keys()
-                    ]
-                    optional_missing_keys = [
-                        key for key in OPTIONAL_KEYS if key not in ci.keys()
-                    ]
-                    additional_keys = [
-                        key
-                        for key in ci.keys()
-                        if key not in (MANDATORY_KEYS + OPTIONAL_KEYS)
-                    ]
-                    if mandatory_missing_keys:
-                        log_message += (
-                            f"Mandatory Missing Fields: {mandatory_missing_keys}\n"
+                    log_message = (
+                        f"CI file name {file_name}\nCI response {ci_response_json}\n\n"
+                    )
+                    if ci_response_json.get("message") == "Field required":
+                        mandatory_missing_keys = [
+                            key for key in MANDATORY_KEYS if key not in ci.keys()
+                        ]
+                        optional_missing_keys = [
+                            key for key in OPTIONAL_KEYS if key not in ci.keys()
+                        ]
+                        additional_keys = [
+                            key
+                            for key in ci.keys()
+                            if key not in (MANDATORY_KEYS + OPTIONAL_KEYS)
+                        ]
+                        log_message = (
+                            f"CI File name: {file_name}\n"
+                            f"CI response {ci_response_json}\n"
+                            f"Mandatory Missing Fields {mandatory_missing_keys}\n"
+                            f"Optional Missing Fields {optional_missing_keys}\n"
+                            f"Additional Fields Found {additional_keys}\n\n\n"
                         )
-                    if optional_missing_keys:
-                        log_message += (
-                            f"Optional Missing Fields: {optional_missing_keys}\n"
-                        )
-                    if additional_keys:
-                        log_message += (
-                            f"Additional Fields Found: {additional_keys}\n"
-                        )
-                
-                # Write the log message once
-                log_message += "\n\n"
-                log_file.write(log_message)
-                
+                    log_file.write(log_message)
+                else:
+                    log_file.write(
+                        f"CI file name {file_name}\n"
+                        f"CI response {ci_response_json}\n\n"
+                    )
             except KeyError:
                 # Handle the case where the expected keys are not present in the response
-                logging.error("KeyError: Required key(s) not found in the response JSON.")
+                logging.error(
+                    "KeyError: Required key(s) not found in the response JSON."
+                )
                 total_errors_found += 1
                 log_file.write(
                     f"Error: Required key(s) not found in the response JSON for CI file: {file_name}\n\n"
@@ -272,24 +313,27 @@ class CIProceesor:
         else:
             # Handle the case where the request failed
             logging.error("Failed to make IAP request.")
-        
+
         return total_errors_found
 
-
     @staticmethod
-    def process_ci_files(ci_list, json_files, audience, key_filename, key_id, project_id):
+    def process_ci_files(
+        ci_list, json_files, audience, key_filename, key_id, project_id
+    ):
         """
         This function creates a log file which is used in storing responses in `publish_ci_file` function and provide
         consolidated count of json files to be published and errors found is provdied at the end of the log file
         """
         total_errors_found = 0
-        with open(f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log", "a") as log_file:
+        with open(
+            f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log", "a"
+        ) as log_file:
             for ci, file_name in zip(ci_list, json_files):
                 total_errors_found = CIProceesor.publish_ci_file(
                     ci, file_name, log_file, audience, total_errors_found
                 )
             log_file.write(
-                f"Folder location provided: {path_to_json}\n"
+                f"Folder location provided: {CIProceesor.get_folder_path_from_user}\n"
                 f"Total Number of Json files to be published: {len(json_files)}\n"
                 f"Total errors found total_errors_found: {total_errors_found}\n\n"
             )
@@ -298,11 +342,12 @@ class CIProceesor:
         cir_manager = CIRManager()
         cir_manager.cleanup_key_file(key_filename, key_id, project_id)
 
+
 class CIRvalidation:
     def __init__(self) -> None:
         None
-        
-    @staticmethod    
+
+    @staticmethod
     def validate_project_id(project_id):
         """
         Validate the format of the CIR Project ID.
@@ -329,38 +374,54 @@ class CIRvalidation:
             return False
 
 
-if __name__ == "__main__":
-    """
-    Before running this file make sure to clone the required repository and then specify the path above
-    """
-    # Automatically authenticate the user
-    #try:
-        #subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
-        #print("Authentication successful. Continuing with the script...")
-    #except subprocess.CalledProcessError as e:
-        #print(f"Error: Authentication failed. {e}")
-        #exit(1)  # Exit the script if authentication fails
+class CIPublisher:
+    def __init__(self) -> None:
+        pass
 
-    # Prompt the user to enter the CIR Project ID and URL
-    project_id = input("Enter the CIR Project ID: ").strip()
-    while not CIRvalidation.validate_project_id(project_id):
+    def main():
+        """
+        This code includes the main function, which acts as the entry point for the script.
+        It prompts the user for input, sets up logging, calls other functions to load and process
+        the collection instrument files, and performs any necessary cleanup after processing.
+        """
+        # Automatically authenticate the user
+        # try:
+        # subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
+        # print("Authentication successful. Continuing with the script...")
+        # except subprocess.CalledProcessError as e:
+        # print(f"Error: Authentication failed. {e}")
+        # exit(1)  # Exit the script if authentication fails
+
+        # Prompt the user to enter the CIR Project ID and URL
         project_id = input("Enter the CIR Project ID: ").strip()
+        while not CIRvalidation.validate_project_id(project_id):
+            project_id = input("Enter the CIR Project ID: ").strip()
 
-    base_url = input("Enter the CIR URL: ").strip()
-    while not CIRvalidation.validate_url(base_url):
         base_url = input("Enter the CIR URL: ").strip()
+        while not CIRvalidation.validate_url(base_url):
+            base_url = input("Enter the CIR URL: ").strip()
 
-    details = {"project_id": project_id, "base_url": base_url}
-    cir_manager = CIRManager()
+        # Prompt the user to input the folder path containing CI JSON files
+        folder_path = CIProceesor.get_folder_path_from_user()
 
-    ci_list, json_files = CIProceesor.load_ci_from_path(path_to_json)
-    key_filename, key_id = cir_manager.generate_key_file(details["project_id"])
-    audience = CIRManager().get_client_id(details["project_id"])
+        # Load CI files from the specified path
+        ci_list, json_files = CIProceesor.load_ci_from_path(folder_path)
 
-    if key_id is None:
-        print("Error: Unable to create key file. Exiting the script.")
-        exit()  # Exit the script if a key file cannot be created
+        # Generate key file
+        cir_manager = CIRManager()
+        key_filename, key_id = cir_manager.generate_key_file(project_id)
 
-    CIProceesor.process_ci_files(
-        ci_list, json_files, audience, key_filename, key_id, details["project_id"]
-    )
+        # Obtain audience
+        audience = cir_manager.get_client_id(project_id)
+
+        # Process CI files
+        CIProceesor.process_ci_files(
+            ci_list, json_files, audience, key_filename, key_id, project_id
+        )
+
+        # Delete the key file after processing CIs
+        cir_manager.cleanup_key_file(key_filename, key_id, project_id)
+
+
+if __name__ == "__main__":
+    CIPublisher.main()
