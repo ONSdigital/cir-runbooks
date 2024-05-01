@@ -217,7 +217,7 @@ class CIRManager:
             print(f"Error during cleanup: {e}")
 
 
-class CIProceesor:
+class CIProcessor:
     def __init__(self):
         pass
 
@@ -251,7 +251,7 @@ class CIProceesor:
         Prompt the user to input the folder path.
         """
         folder_path = input("Enter the folder path containing CI JSON files: ").strip()
-        while not CIProceesor.validate_folder_path(folder_path):
+        while not CIProcessor.validate_folder_path(folder_path):
             folder_path = input(
                 "Enter the folder path containing CI JSON files: "
             ).strip()
@@ -318,7 +318,7 @@ class CIProceesor:
 
     @staticmethod
     def process_ci_files(
-        ci_list, json_files, audience, key_filename, key_id, project_id
+        ci_list, json_files, audience, key_filename, key_id, project_id, folder_path
     ):
         """
         This function creates a log file which is used in storing responses in `publish_ci_file` function and provide
@@ -329,11 +329,11 @@ class CIProceesor:
             f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log", "a"
         ) as log_file:
             for ci, file_name in zip(ci_list, json_files):
-                total_errors_found = CIProceesor.publish_ci_file(
+                total_errors_found = CIProcessor.publish_ci_file(
                     ci, file_name, log_file, audience, total_errors_found
                 )
             log_file.write(
-                f"Folder location provided: {CIProceesor.get_folder_path_from_user}\n"
+                f"Folder location provided: {folder_path}\n"
                 f"Total Number of Json files to be published: {len(json_files)}\n"
                 f"Total errors found total_errors_found: {total_errors_found}\n\n"
             )
@@ -385,12 +385,12 @@ class CIPublisher:
         the collection instrument files, and performs any necessary cleanup after processing.
         """
         # Automatically authenticate the user
-        # try:
-        # subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
-        # print("Authentication successful. Continuing with the script...")
-        # except subprocess.CalledProcessError as e:
-        # print(f"Error: Authentication failed. {e}")
-        # exit(1)  # Exit the script if authentication fails
+        try:
+            subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
+            print("Authentication successful. Continuing with the script...")
+        except subprocess.CalledProcessError as e:
+            print(f"Error: Authentication failed. {e}")
+            exit(1)  # Exit the script if authentication fails
 
         # Prompt the user to enter the CIR Project ID and URL
         project_id = input("Enter the CIR Project ID: ").strip()
@@ -402,10 +402,10 @@ class CIPublisher:
             base_url = input("Enter the CIR URL: ").strip()
 
         # Prompt the user to input the folder path containing CI JSON files
-        folder_path = CIProceesor.get_folder_path_from_user()
+        folder_path = CIProcessor.get_folder_path_from_user()
 
         # Load CI files from the specified path
-        ci_list, json_files = CIProceesor.load_ci_from_path(folder_path)
+        ci_list, json_files = CIProcessor.load_ci_from_path(folder_path)
 
         # Generate key file
         cir_manager = CIRManager()
@@ -415,8 +415,8 @@ class CIPublisher:
         audience = cir_manager.get_client_id(project_id)
 
         # Process CI files
-        CIProceesor.process_ci_files(
-            ci_list, json_files, audience, key_filename, key_id, project_id
+        CIProcessor.process_ci_files(
+            ci_list, json_files, audience, key_filename, key_id, project_id, folder_path
         )
 
         # Delete the key file after processing CIs
