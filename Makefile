@@ -5,3 +5,8 @@ lint:
 lint-fix:
 	black .
 	isort . --profile black
+lint-check:
+	python -m black . --check --line-length 127
+	python -m flake8 --max-line-length=127 --exclude=./scripts,env,.venv
+	python -m mypy . --exclude env --disable-error-code attr-defined --disable-error-code import
+	python -m isort . --check-only --profile black --skip env --skip .venv

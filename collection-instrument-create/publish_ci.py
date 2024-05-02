@@ -8,8 +8,6 @@ import subprocess
 import google.auth.transport.requests
 import google.oauth2.id_token
 import requests
-from google.auth.transport.requests import Request
-from google.oauth2 import id_token
 
 POST_URL = "/v1/publish_collection_instrument"
 MANDATORY_KEYS = [
@@ -281,9 +279,6 @@ class CIProcessor:
                         mandatory_missing_keys = [
                             key for key in MANDATORY_KEYS if key not in ci.keys()
                         ]
-                        optional_missing_keys = [
-                            key for key in OPTIONAL_KEYS if key not in ci.keys()
-                        ]
                         additional_keys = [
                             key
                             for key in ci.keys()
@@ -293,7 +288,6 @@ class CIProcessor:
                             f"CI File name: {file_name}\n"
                             f"CI response {ci_response_json}\n"
                             f"Mandatory Missing Fields {mandatory_missing_keys}\n"
-                            f"Optional Missing Fields {optional_missing_keys}\n"
                             f"Additional Fields Found {additional_keys}\n\n\n"
                         )
                     log_file.write(log_message)
@@ -319,14 +313,7 @@ class CIProcessor:
 
     @staticmethod
     def process_ci_files(
-        ci_list,
-        json_files,
-        audience,
-        key_filename,
-        key_id,
-        project_id,
-        folder_path,
-        base_url,
+        path_to_json, audience, key_filename, key_id, project_id, base_url
     ):
         """
         This function creates a log file which is used in storing responses in `publish_ci_file` function and provide
@@ -336,12 +323,22 @@ class CIProcessor:
         with open(
             f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log", "a"
         ) as log_file:
-            for ci, file_name in zip(ci_list, json_files):
+            json_files = [pos_json for pos_json in os.listdir(path_to_json)]
+            for file_name in json_files:
+                file_path = os.path.join(path_to_json, file_name)
+                try:
+                    with open(file_path) as content:
+                        ci = json.load(content)
+                except Exception as e:
+                    logging.error(f"Error loading CI file {file_name}: {e}")
+                    continue
+
                 total_errors_found = CIProcessor.publish_ci_file(
                     ci, file_name, log_file, audience, total_errors_found, base_url
                 )
+
             log_file.write(
-                f"Folder location provided: {folder_path}\n"
+                f"Folder location provided: {path_to_json}\n"
                 f"Total Number of Json files to be published: {len(json_files)}\n"
                 f"Total errors found total_errors_found: {total_errors_found}\n\n"
             )
@@ -393,12 +390,12 @@ class CIPublisher:
         the collection instrument files, and performs any necessary cleanup after processing.
         """
         # Automatically authenticate the user
-        try:
-            subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
-            print("Authentication successful. Continuing with the script...")
-        except subprocess.CalledProcessError as e:
-            print(f"Error: Authentication failed. {e}")
-            exit(1)  # Exit the script if authentication fails
+        # try:
+        # subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
+        # print("Authentication successful. Continuing with the script...")
+        # except subprocess.CalledProcessError as e:
+        # print(f"Error: Authentication failed. {e}")
+        # exit(1)  # Exit the script if authentication fails
 
         # Prompt the user to enter the CIR Project ID and URL
         project_id = input("Enter the CIR Project ID: ").strip()
@@ -422,15 +419,12 @@ class CIPublisher:
         # Obtain audience
         audience = cir_manager.get_client_id(project_id)
 
-        # Process CI files
         CIProcessor.process_ci_files(
-            ci_list,
-            json_files,
+            folder_path,
             audience,
             key_filename,
             key_id,
             project_id,
-            folder_path,
             base_url,
         )
 
