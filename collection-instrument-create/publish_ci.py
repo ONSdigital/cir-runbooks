@@ -1,4 +1,5 @@
 import datetime
+import glob
 import json
 import logging
 import os
@@ -8,7 +9,6 @@ import subprocess
 import google.auth.transport.requests
 import google.oauth2.id_token
 import requests
-import glob
 
 POST_URL = "/v1/publish_collection_instrument"
 MANDATORY_KEYS = [
@@ -228,13 +228,17 @@ class CIProcessor:
         with open(file_path) as content:
             ci = json.load(content)
         return ci
-    
+
     @staticmethod
     def glob_json_files(directory_path):
         """
         Function to glob the JSON files from a directory.
         """
-        json_files = [os.path.join(directory_path, file) for file in os.listdir(directory_path) if file.endswith(".json")]
+        json_files = [
+            os.path.join(directory_path, file)
+            for file in os.listdir(directory_path)
+            if file.endswith(".json")
+        ]
         return json_files
 
     @staticmethod
@@ -260,9 +264,10 @@ class CIProcessor:
             ).strip()
         return folder_path
 
-
     @staticmethod
-    def publish_ci_file(ci, file_path, log_file, audience, total_errors_found, base_url):
+    def publish_ci_file(
+        ci, file_path, log_file, audience, total_errors_found, base_url
+    ):
         """
         This function publishes CI and logs the response.
         """
@@ -287,22 +292,21 @@ class CIProcessor:
                     mandatory_missing_keys = [
                         key for key in MANDATORY_KEYS if key not in ci.keys()
                     ]
+                    additional_keys = [
+                        key for key in ci.keys() if key not in MANDATORY_KEYS
+                    ]
                     log_message = (
-                        f"CI File name: {file_path}\n"
-                        f"CI response {ci_response_json}\n"
-                        f"Mandatory Missing Fields {mandatory_missing_keys}\n\n\n"
+                        f"Mandatory Missing Fields {mandatory_missing_keys}\n"
+                        f"Additional Fields Found {additional_keys}\n\n\n"
                     )
                 log_file.write(log_message)
             else:
                 log_file.write(
-                    f"CI file name {file_path}\n"
-                    f"CI response {ci_response_json}\n\n"
+                    f"CI file name {file_path}\n" f"CI response {ci_response_json}\n\n"
                 )
         except KeyError:
             # Handle the case where the expected keys are not present in the response
-            logging.error(
-                "KeyError: Required key(s) not found in the response JSON."
-            )
+            logging.error("KeyError: Required key(s) not found in the response JSON.")
             total_errors_found += 1
             log_file.write(
                 f"Error: Required key(s) not found in the response JSON for CI file: {file_path}\n\n"
@@ -311,12 +315,16 @@ class CIProcessor:
         return total_errors_found
 
     @staticmethod
-    def process_ci_files(directory_path, audience, key_filename, key_id, project_id, base_url):
+    def process_ci_files(
+        directory_path, audience, key_filename, key_id, project_id, base_url
+    ):
         """
         This function processes CI files from the specified directory path.
         """
         total_errors_found = 0
-        log_filename = f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log"
+        log_filename = (
+            f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log"
+        )
         with open(log_filename, "a") as log_file:
             for file_name in os.listdir(directory_path):
                 if file_name.endswith(".json"):
@@ -340,7 +348,6 @@ class CIProcessor:
         # Delete the key file after all CIs have been published
         cir_manager = CIRManager()
         cir_manager.cleanup_key_file(key_filename, key_id, project_id)
-    
 
 
 class CIRvalidation:
@@ -385,12 +392,12 @@ class CIPublisher:
         the collection instrument files, and performs any necessary cleanup after processing.
         """
         # Automatically authenticate the user
-        # try:
-        # subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
-        # print("Authentication successful. Continuing with the script...")
-        # except subprocess.CalledProcessError as e:
-        # print(f"Error: Authentication failed. {e}")
-        # exit(1)  # Exit the script if authentication fails
+        try:
+            subprocess.run(["gcloud", "auth", "login", "--quiet"], check=True)
+            print("Authentication successful. Continuing with the script...")
+        except subprocess.CalledProcessError as e:
+            print(f"Error: Authentication failed. {e}")
+            exit(1)  # Exit the script if authentication fails
 
         # Prompt the user to enter the CIR Project ID and URL
         project_id = input("Enter the CIR Project ID: ").strip()
