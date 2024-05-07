@@ -8,6 +8,7 @@ import subprocess
 import google.auth.transport.requests
 import google.oauth2.id_token
 import requests
+import glob
 
 POST_URL = "/v1/publish_collection_instrument"
 MANDATORY_KEYS = [
@@ -220,17 +221,21 @@ class CIProcessor:
         pass
 
     @staticmethod
-    def load_ci_from_path(path_to_json):
+    def load_ci_from_file(file_path):
         """
-        This function loads CIs from the specified path and return ci_list and json file names
+        This function loads CI from the specified file and returns the CI object.
         """
-        ci_list = []
-        json_files = [pos_json for pos_json in os.listdir(path_to_json)]
-        for json_file in json_files:
-            with open(f"{path_to_json}/{json_file}") as content:
-                ci = json.load(content)
-                ci_list.append(ci)
-        return ci_list, json_files
+        with open(file_path) as content:
+            ci = json.load(content)
+        return ci
+    
+    @staticmethod
+    def glob_json_files(directory_path):
+        """
+        Function to glob the JSON files from a directory.
+        """
+        json_files = [os.path.join(directory_path, file) for file in os.listdir(directory_path) if file.endswith(".json")]
+        return json_files
 
     @staticmethod
     def validate_folder_path(folder_path):
@@ -255,97 +260,87 @@ class CIProcessor:
             ).strip()
         return folder_path
 
+
     @staticmethod
-    def publish_ci_file(
-        ci, file_name, log_file, audience, total_errors_found, base_url
-    ):
+    def publish_ci_file(ci, file_path, log_file, audience, total_errors_found, base_url):
         """
-        This function publishes ci and logs the response
+        This function publishes CI and logs the response.
         """
         request_url = f"{base_url}{POST_URL}"
         ci_response = CIRManager().make_iap_request(request_url, audience, ci)
 
-        if ci_response is not None:
-            try:
-                ci_response_json = ci_response.json()
-
-                # Handle error cases
-                if ci_response_json.get("status") == "error":
-                    total_errors_found += 1
-                    log_message = (
-                        f"CI file name {file_name}\nCI response {ci_response_json}\n\n"
-                    )
-                    if ci_response_json.get("message") == "Field required":
-                        mandatory_missing_keys = [
-                            key for key in MANDATORY_KEYS if key not in ci.keys()
-                        ]
-                        additional_keys = [
-                            key
-                            for key in ci.keys()
-                            if key not in (MANDATORY_KEYS + OPTIONAL_KEYS)
-                        ]
-                        log_message = (
-                            f"CI File name: {file_name}\n"
-                            f"CI response {ci_response_json}\n"
-                            f"Mandatory Missing Fields {mandatory_missing_keys}\n"
-                            f"Additional Fields Found {additional_keys}\n\n\n"
-                        )
-                    log_file.write(log_message)
-                else:
-                    log_file.write(
-                        f"CI file name {file_name}\n"
-                        f"CI response {ci_response_json}\n\n"
-                    )
-            except KeyError:
-                # Handle the case where the expected keys are not present in the response
-                logging.error(
-                    "KeyError: Required key(s) not found in the response JSON."
-                )
-                total_errors_found += 1
-                log_file.write(
-                    f"Error: Required key(s) not found in the response JSON for CI file: {file_name}\n\n"
-                )
-        else:
+        if ci_response is None:
             # Handle the case where the request failed
             logging.error("Failed to make IAP request.")
+            return total_errors_found
+
+        try:
+            ci_response_json = ci_response.json()
+
+            # Handle error cases
+            if ci_response_json.get("status") == "error":
+                total_errors_found += 1
+                log_message = (
+                    f"CI file name {file_path}\nCI response {ci_response_json}\n\n"
+                )
+                if ci_response_json.get("message") == "Field required":
+                    mandatory_missing_keys = [
+                        key for key in MANDATORY_KEYS if key not in ci.keys()
+                    ]
+                    log_message = (
+                        f"CI File name: {file_path}\n"
+                        f"CI response {ci_response_json}\n"
+                        f"Mandatory Missing Fields {mandatory_missing_keys}\n\n\n"
+                    )
+                log_file.write(log_message)
+            else:
+                log_file.write(
+                    f"CI file name {file_path}\n"
+                    f"CI response {ci_response_json}\n\n"
+                )
+        except KeyError:
+            # Handle the case where the expected keys are not present in the response
+            logging.error(
+                "KeyError: Required key(s) not found in the response JSON."
+            )
+            total_errors_found += 1
+            log_file.write(
+                f"Error: Required key(s) not found in the response JSON for CI file: {file_path}\n\n"
+            )
 
         return total_errors_found
 
     @staticmethod
-    def process_ci_files(
-        path_to_json, audience, key_filename, key_id, project_id, base_url
-    ):
+    def process_ci_files(directory_path, audience, key_filename, key_id, project_id, base_url):
         """
-        This function creates a log file which is used in storing responses in `publish_ci_file` function and provide
-        consolidated count of json files to be published and errors found is provdied at the end of the log file
+        This function processes CI files from the specified directory path.
         """
         total_errors_found = 0
-        with open(
-            f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log", "a"
-        ) as log_file:
-            json_files = [pos_json for pos_json in os.listdir(path_to_json)]
-            for file_name in json_files:
-                file_path = os.path.join(path_to_json, file_name)
-                try:
-                    with open(file_path) as content:
-                        ci = json.load(content)
-                except Exception as e:
-                    logging.error(f"Error loading CI file {file_name}: {e}")
-                    continue
+        log_filename = f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log"
+        with open(log_filename, "a") as log_file:
+            for file_name in os.listdir(directory_path):
+                if file_name.endswith(".json"):
+                    file_path = os.path.join(directory_path, file_name)
+                    try:
+                        ci = CIProcessor.load_ci_from_file(file_path)
+                    except Exception as e:
+                        logging.error(f"Error loading CI file {file_path}: {e}")
+                        continue
 
-                total_errors_found = CIProcessor.publish_ci_file(
-                    ci, file_name, log_file, audience, total_errors_found, base_url
-                )
+                    total_errors_found = CIProcessor.publish_ci_file(
+                        ci, file_path, log_file, audience, total_errors_found, base_url
+                    )
 
             log_file.write(
-                f"Folder location provided: {path_to_json}\n"
-                f"Total Number of Json files to be published: {len(json_files)}\n"
+                f"Folder location provided: {directory_path}\n"
+                f"Total Number of Json files to be published: {len(os.listdir(directory_path))}\n"
                 f"Total errors found total_errors_found: {total_errors_found}\n\n"
             )
 
         # Delete the key file after all CIs have been published
         cir_manager = CIRManager()
         cir_manager.cleanup_key_file(key_filename, key_id, project_id)
+    
 
 
 class CIRvalidation:
@@ -408,9 +403,6 @@ class CIPublisher:
 
         # Prompt the user to input the folder path containing CI JSON files
         folder_path = CIProcessor.get_folder_path_from_user()
-
-        # Load CI files from the specified path
-        ci_list, json_files = CIProcessor.load_ci_from_path(folder_path)
 
         # Generate key file
         cir_manager = CIRManager()
