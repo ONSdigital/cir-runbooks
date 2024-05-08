@@ -298,9 +298,11 @@ class CIProcessor:
                         f"Mandatory Missing Fields {mandatory_missing_keys}\n"
                         f"Additional Fields Found {additional_keys}\n\n\n"
                     )
-                log_file.write(log_message)
-                f"CI file name {file_path}\n"
-                f"CI response {ci_response_json}\n\n"
+                    log_file.write(log_message)
+
+                log_file.write(
+                    f"CI file name {file_path}\n" f"CI response {ci_response_json}\n\n"
+                )
 
         except KeyError:
             # Handle the case where the expected keys are not present in the response
@@ -342,10 +344,6 @@ class CIProcessor:
                 f"Total Number of Json files to be published: {len(os.listdir(directory_path))}\n"
                 f"Total errors found total_errors_found: {total_errors_found}\n\n"
             )
-
-        # Delete the key file after all CIs have been published
-        cir_manager = CIRManager()
-        cir_manager.cleanup_key_file(key_filename, key_id, project_id)
 
 
 class CIRvalidation:
@@ -406,27 +404,32 @@ class CIPublisher:
         while not CIRvalidation.validate_url(base_url):
             base_url = input("Enter the CIR URL: ").strip()
 
-        # Prompt the user to input the folder path containing CI JSON files
-        folder_path = CIProcessor.get_folder_path_from_user()
+        try:
+            # Prompt the user to input the folder path containing CI JSON files
+            folder_path = CIProcessor.get_folder_path_from_user()
 
-        # Generate key file
-        cir_manager = CIRManager()
-        key_filename, key_id = cir_manager.generate_key_file(project_id)
+            # Generate key file
+            cir_manager = CIRManager()
+            key_filename, key_id = cir_manager.generate_key_file(project_id)
 
-        # Obtain audience
-        audience = cir_manager.get_client_id(project_id)
+            # Obtain audience
+            audience = cir_manager.get_client_id(project_id)
 
-        CIProcessor.process_ci_files(
-            folder_path,
-            audience,
-            key_filename,
-            key_id,
-            project_id,
-            base_url,
-        )
+            CIProcessor.process_ci_files(
+                folder_path,
+                audience,
+                key_filename,
+                key_id,
+                project_id,
+                base_url,
+            )
 
-        # Delete the key file after processing CIs
-        cir_manager.cleanup_key_file(key_filename, key_id, project_id)
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+        finally:
+            # Delete the key file after processing CIs
+            cir_manager.cleanup_key_file(key_filename, key_id, project_id)
 
 
 if __name__ == "__main__":
