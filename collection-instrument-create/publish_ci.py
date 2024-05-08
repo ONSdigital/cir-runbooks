@@ -1,5 +1,4 @@
 import datetime
-import glob
 import json
 import logging
 import os
@@ -300,10 +299,9 @@ class CIProcessor:
                         f"Additional Fields Found {additional_keys}\n\n\n"
                     )
                 log_file.write(log_message)
-            else:
-                log_file.write(
-                    f"CI file name {file_path}\n" f"CI response {ci_response_json}\n\n"
-                )
+                f"CI file name {file_path}\n"
+                f"CI response {ci_response_json}\n\n"
+
         except KeyError:
             # Handle the case where the expected keys are not present in the response
             logging.error("KeyError: Required key(s) not found in the response JSON.")
