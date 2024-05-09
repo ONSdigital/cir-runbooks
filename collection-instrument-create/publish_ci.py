@@ -306,7 +306,7 @@ class CIProcessor:
         return total_errors_found
 
     @staticmethod
-    def validate_ci_keys(ci):
+    def validate_ci_keys(ci, log_file):
         """
         Validates the keys of the CI dictionary.
         """
@@ -320,7 +320,7 @@ class CIProcessor:
                 f"Mandatory Missing Fields {mandatory_missing_keys}\n"
                 f"Additional Fields Found {additional_keys}\n\n\n"
             )
-            logging.error(log_message)
+            log_file.write(log_message)
             return False
         return True
 
@@ -345,6 +345,7 @@ class CIProcessor:
                         ci = CIProcessor.load_ci_from_file(file_path)
                     except Exception as e:
                         logging.error(f"Error loading CI file {file_path}: {e}")
+                        total_errors_found += 1
                         continue
 
                     # Validate CI keys
@@ -358,7 +359,7 @@ class CIProcessor:
 
             log_file.write(
                 f"Folder location provided: {directory_path}\n"
-                f"Total Number of Json files to be published: {len(os.listdir(directory_path))}\n"
+                f"Total Number of Json files to be published: {total_json_files}\n"
                 f"Total errors found total_errors_found: {total_errors_found}\n\n"
             )
             return total_errors_found
