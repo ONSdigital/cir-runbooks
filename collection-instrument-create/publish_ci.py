@@ -277,6 +277,7 @@ class CIProcessor:
         if ci_response is None:
             # Handle the case where the request failed
             logging.error("Failed to make IAP request.")
+            total_errors_found += 1
             return total_errors_found
 
         try:
@@ -325,18 +326,20 @@ class CIProcessor:
 
     @staticmethod
     def process_ci_files(
-        directory_path, audience, key_filename, key_id, project_id, base_url
+        directory_path, audience, key_filename, key_id, project_id, base_url, log_file
     ):
         """
         This function processes CI files from the specified directory path.
         """
         total_errors_found = 0
+        total_json_files = 0
         log_filename = (
             f"log_{datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')}.log"
         )
         with open(log_filename, "a") as log_file:
             for file_name in os.listdir(directory_path):
                 if file_name.endswith(".json"):
+                    total_json_files += 1
                     file_path = os.path.join(directory_path, file_name)
                     try:
                         ci = CIProcessor.load_ci_from_file(file_path)
@@ -345,7 +348,7 @@ class CIProcessor:
                         continue
 
                     # Validate CI keys
-                    if not CIProcessor.validate_ci_keys(ci):
+                    if not CIProcessor.validate_ci_keys(ci, log_file):
                         total_errors_found += 1
                         continue
 
