@@ -1,7 +1,0 @@
-CI file name /Users/mohammedahmed/Documents/T1/file1.json
-CI response {'ci_version': 9, 'data_version': '0.0.1', 'form_type': '0005', 'guid': '2082b56a-0e06-44d8-9bcc-ea1f99a26936', 'language': 'en', 'published_at': '2024-05-09T13:20:40.472408Z', 'schema_version': '0.0.1', 'status': 'DRAFT', 'survey_id': '134', 'title': 'Monthly Wages and Salaries Survey', 'description': 'new description'}
-
-Folder location provided: /Users/mohammedahmed/Documents/T1
-Total Number of Json files to be published: 1
-Total errors found total_errors_found: 0
-
