@@ -272,11 +272,6 @@ class CIProcessor:
         """
         request_url = f"{base_url}{POST_URL}"
 
-        # Validate CI keys
-        if not CIProcessor.validate_ci_keys(ci):
-            total_errors_found += 1
-            return total_errors_found
-
         ci_response = CIRManager().make_iap_request(request_url, audience, ci)
 
         if ci_response is None:
@@ -291,20 +286,6 @@ class CIProcessor:
             if ci_response_json.get("status") == "error":
                 total_errors_found += 1
                 log_message = (
-                    f"CI file name {file_path}\nCI response {ci_response_json}\n\n"
-                )
-                if ci_response_json.get("message") == "Field required":
-                    mandatory_missing_keys = [
-                        key for key in MANDATORY_KEYS if key not in ci.keys()
-                    ]
-                    additional_keys = [
-                        key for key in ci.keys() if key not in MANDATORY_KEYS
-                    ]
-                    log_message = (
-                        f"Mandatory Missing Fields {mandatory_missing_keys}\n"
-                        f"Additional Fields Found {additional_keys}\n\n\n"
-                    )
-                log_message += (
                     f"CI file name {file_path}\nCI response {ci_response_json}\n\n"
                 )
                 log_file.write(log_message)
@@ -380,7 +361,7 @@ class CIProcessor:
             return total_errors_found
 
 
-class CIRvalidation:
+class CIValidator:
     def __init__(self) -> None:
         None
 
@@ -431,11 +412,11 @@ class CIPublisher:
 
         # Prompt the user to enter the CIR Project ID and URL
         project_id = input("Enter the CIR Project ID: ").strip()
-        while not CIRvalidation.validate_project_id(project_id):
+        while not CIValidator.validate_project_id(project_id):
             project_id = input("Enter the CIR Project ID: ").strip()
 
         base_url = input("Enter the CIR URL: ").strip()
-        while not CIRvalidation.validate_url(base_url):
+        while not CIValidator.validate_url(base_url):
             base_url = input("Enter the CIR URL: ").strip()
 
         try:
