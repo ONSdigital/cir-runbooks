@@ -144,7 +144,7 @@ class CIRManager:
                 key_data = json.load(key_file)
                 key_id = key_data.get("private_key_id")
                 if not key_id:
-                    raise Exception("Key ID not found in the key file.")
+                    raise ValueError("Key ID not found in the key file.")
                 return key_id
         except Exception as e:
             print(f"Error extracting key ID: {e}")
@@ -271,6 +271,12 @@ class CIProcessor:
         This function publishes CI and logs the response.
         """
         request_url = f"{base_url}{POST_URL}"
+
+        # Validate CI keys
+        if not CIProcessor.validate_ci_keys(ci):
+            total_errors_found += 1
+            return total_errors_found
+
         ci_response = CIRManager().make_iap_request(request_url, audience, ci)
 
         if ci_response is None:
@@ -298,10 +304,13 @@ class CIProcessor:
                         f"Mandatory Missing Fields {mandatory_missing_keys}\n"
                         f"Additional Fields Found {additional_keys}\n\n\n"
                     )
-                    log_file.write(log_message)
-
+                log_message += (
+                    f"CI file name {file_path}\nCI response {ci_response_json}\n\n"
+                )
+                log_file.write(log_message)
+            else:
                 log_file.write(
-                    f"CI file name {file_path}\n" f"CI response {ci_response_json}\n\n"
+                    f"CI file name {file_path}\nCI response {ci_response_json}\n\n"
                 )
 
         except KeyError:
@@ -313,6 +322,25 @@ class CIProcessor:
             )
 
         return total_errors_found
+
+    @staticmethod
+    def validate_ci_keys(ci):
+        """
+        Validates the keys of the CI dictionary.
+        """
+        mandatory_missing_keys = [key for key in MANDATORY_KEYS if key not in ci.keys()]
+        additional_keys = [
+            key for key in ci.keys() if key not in MANDATORY_KEYS + OPTIONAL_KEYS
+        ]
+
+        if mandatory_missing_keys or additional_keys:
+            log_message = (
+                f"Mandatory Missing Fields {mandatory_missing_keys}\n"
+                f"Additional Fields Found {additional_keys}\n\n\n"
+            )
+            logging.error(log_message)
+            return False
+        return True
 
     @staticmethod
     def process_ci_files(
@@ -335,6 +363,11 @@ class CIProcessor:
                         logging.error(f"Error loading CI file {file_path}: {e}")
                         continue
 
+                    # Validate CI keys
+                    if not CIProcessor.validate_ci_keys(ci):
+                        total_errors_found += 1
+                        continue
+
                     total_errors_found = CIProcessor.publish_ci_file(
                         ci, file_path, log_file, audience, total_errors_found, base_url
                     )
@@ -344,6 +377,7 @@ class CIProcessor:
                 f"Total Number of Json files to be published: {len(os.listdir(directory_path))}\n"
                 f"Total errors found total_errors_found: {total_errors_found}\n\n"
             )
+            return total_errors_found
 
 
 class CIRvalidation:
