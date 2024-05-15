@@ -180,7 +180,7 @@ class CIRManager:
             )
             key_id = self.extract_key_id(key_filename)
             if key_id is None:
-                raise Exception("Key ID extraction failed.")
+                raise KeyError("Key ID extraction failed.")
             return key_filename, key_id
         except Exception as e:
             print(f"Error occurred: {e}")
@@ -326,7 +326,7 @@ class CIProcessor:
 
     @staticmethod
     def process_ci_files(
-        directory_path, audience, key_filename, key_id, project_id, base_url, log_file
+        directory_path, audience, key_filename, key_id, project_id, base_url
     ):
         """
         This function processes CI files from the specified directory path.
