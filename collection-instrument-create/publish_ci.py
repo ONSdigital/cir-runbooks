@@ -61,7 +61,7 @@ class CIRManager:
             if response is not None:
                 return response
             else:
-                # Handle the case when response is None
+                # Handle the case when response is None.
                 return None
 
     def generate_headers(self, audience) -> dict[str, str]:
