@@ -61,7 +61,7 @@ class CIRManager:
             if response is not None:
                 return response
             else:
-                # Handle the case when response is None.
+                # Handle the case when response is None
                 return None
 
     def generate_headers(self, audience) -> dict[str, str]:
@@ -325,9 +325,7 @@ class CIProcessor:
         return True
 
     @staticmethod
-    def process_ci_files(
-        directory_path, audience, key_filename, key_id, project_id, base_url
-    ):
+    def process_ci_files(directory_path, audience, base_url):
         """
         This function processes CI files from the specified directory path.
         """
@@ -437,9 +435,6 @@ class CIPublisher:
             CIProcessor.process_ci_files(
                 folder_path,
                 audience,
-                key_filename,
-                key_id,
-                project_id,
                 base_url,
             )
 
